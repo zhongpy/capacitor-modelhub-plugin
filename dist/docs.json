@@ -1,0 +1,183 @@
+{
+  "api": {
+    "name": "CapacitorModelhubPluginPlugin",
+    "slug": "capacitormodelhubpluginplugin",
+    "docs": "",
+    "tags": [],
+    "methods": [
+      {
+        "name": "echo",
+        "signature": "(options: { value: string; }) => any",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "",
+            "type": "{ value: string; }"
+          }
+        ],
+        "returns": "any",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "echo"
+      },
+      {
+        "name": "getRoot",
+        "signature": "() => any",
+        "parameters": [],
+        "returns": "any",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "getroot"
+      },
+      {
+        "name": "getPath",
+        "signature": "(options: { unpackTo: string; }) => any",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "",
+            "type": "{ unpackTo: string; }"
+          }
+        ],
+        "returns": "any",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "getpath"
+      },
+      {
+        "name": "check",
+        "signature": "(options: { items: ModelItem[]; }) => any",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "",
+            "type": "{ items: {}; }"
+          }
+        ],
+        "returns": "any",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [
+          "ModelItem",
+          "CheckResult"
+        ],
+        "slug": "check"
+      },
+      {
+        "name": "ensureInstalled",
+        "signature": "(options: { item: ModelItem; policy: EnsurePolicy; }) => any",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "",
+            "type": "{ item: ModelItem; policy: EnsurePolicy; }"
+          }
+        ],
+        "returns": "any",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [
+          "ModelItem",
+          "EnsurePolicy",
+          "EnsureResult"
+        ],
+        "slug": "ensureinstalled"
+      },
+      {
+        "name": "addListener",
+        "signature": "(eventName: \"ModelsHubProgress\", listenerFunc: (event: ProgressEvent) => void) => any",
+        "parameters": [
+          {
+            "name": "eventName",
+            "docs": "",
+            "type": "'ModelsHubProgress'"
+          },
+          {
+            "name": "listenerFunc",
+            "docs": "",
+            "type": "(event: ProgressEvent) => void"
+          }
+        ],
+        "returns": "any",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [
+          "ProgressEvent"
+        ],
+        "slug": "addlistenermodelshubprogress-"
+      }
+    ],
+    "properties": []
+  },
+  "interfaces": [],
+  "enums": [],
+  "typeAliases": [
+    {
+      "name": "ModelItem",
+      "slug": "modelitem",
+      "docs": "",
+      "types": [
+        {
+          "text": "{\n  key: string;                 // 必须与 assets/models/<key>.zip 对齐\n  unpackTo: string;            // e.g. \"stt/en_kroko\"\n  checkFiles: string[];        // e.g. [\"encoder.onnx\",\"tokens.txt\"]\n  password?: string;           // AES zip password\n  sha256?: string;             // 可选：zip 的 sha256（推荐）\n  remoteUrl?: string;          // releaseLite 走下载\n}",
+          "complexTypes": []
+        }
+      ]
+    },
+    {
+      "name": "CheckResult",
+      "slug": "checkresult",
+      "docs": "",
+      "types": [
+        {
+          "text": "{\n  key: string;\n  status: \"installed\" | \"missing\" | \"corrupt\";\n  installedPath: string;       // <modelsRoot>/<unpackTo>\n  hasBundledZip: boolean;      // assets/models/<key>.zip 是否存在\n}",
+          "complexTypes": []
+        }
+      ]
+    },
+    {
+      "name": "EnsurePolicy",
+      "slug": "ensurepolicy",
+      "docs": "",
+      "types": [
+        {
+          "text": "\"bundleOnly\"",
+          "complexTypes": []
+        },
+        {
+          "text": "\"downloadOnly\"",
+          "complexTypes": []
+        },
+        {
+          "text": "\"bundleThenDownload\"",
+          "complexTypes": []
+        }
+      ]
+    },
+    {
+      "name": "EnsureResult",
+      "slug": "ensureresult",
+      "docs": "",
+      "types": [
+        {
+          "text": "{\n  key: string;\n  installedPath: string;\n}",
+          "complexTypes": []
+        }
+      ]
+    },
+    {
+      "name": "ProgressEvent",
+      "slug": "progressevent",
+      "docs": "",
+      "types": [
+        {
+          "text": "{\n  key: string;\n  phase: \"checking\" | \"copying\" | \"downloading\" | \"verifying\" | \"unpacking\" | \"finalizing\";\n  downloaded?: number;\n  total?: number;\n  progress?: number; // 0..1\n  message?: string;\n}",
+          "complexTypes": []
+        }
+      ]
+    }
+  ],
+  "pluginConfigs": []
+}
