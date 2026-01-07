@@ -28,4 +28,9 @@ export class CapacitorModelhubPluginWeb extends WebPlugin implements CapacitorMo
     console.log('ensureInstalled');
     return result;
   }
+  async ensureInstalledMany(options: { items: ModelItem[]; policy: EnsurePolicy }): Promise<{ results: EnsureResult[] }>{
+    const result = { results: [] };
+    console.log('ensureInstalledMany'+options);
+    return result;
+  }
 }

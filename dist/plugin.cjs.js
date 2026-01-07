@@ -31,6 +31,11 @@ class CapacitorModelhubPluginWeb extends core.WebPlugin {
         console.log('ensureInstalled');
         return result;
     }
+    async ensureInstalledMany(options) {
+        const result = { results: [] };
+        console.log('ensureInstalledMany' + options);
+        return result;
+    }
 }
 
 var web = /*#__PURE__*/Object.freeze({

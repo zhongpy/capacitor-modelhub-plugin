@@ -23,4 +23,10 @@ export declare class CapacitorModelhubPluginWeb extends WebPlugin implements Cap
         item: ModelItem;
         policy: EnsurePolicy;
     }): Promise<EnsureResult>;
+    ensureInstalledMany(options: {
+        items: ModelItem[];
+        policy: EnsurePolicy;
+    }): Promise<{
+        results: EnsureResult[];
+    }>;
 }

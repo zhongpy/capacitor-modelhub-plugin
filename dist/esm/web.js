@@ -24,5 +24,10 @@ export class CapacitorModelhubPluginWeb extends WebPlugin {
         console.log('ensureInstalled');
         return result;
     }
+    async ensureInstalledMany(options) {
+        const result = { results: [] };
+        console.log('ensureInstalledMany' + options);
+        return result;
+    }
 }
 //# sourceMappingURL=web.js.map

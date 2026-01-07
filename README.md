@@ -18,6 +18,7 @@ npx cap sync
 * [`getPath(...)`](#getpath)
 * [`check(...)`](#check)
 * [`ensureInstalled(...)`](#ensureinstalled)
+* [`ensureInstalledMany(...)`](#ensureinstalledmany)
 * [`addListener('ModelsHubProgress', ...)`](#addlistenermodelshubprogress-)
 * [Type Aliases](#type-aliases)
 
@@ -97,6 +98,21 @@ ensureInstalled(options: { item: ModelItem; policy: EnsurePolicy; }) => any
 --------------------
 
 
+### ensureInstalledMany(...)
+
+```typescript
+ensureInstalledMany(options: { items: ModelItem[]; policy: EnsurePolicy; }) => any
+```
+
+| Param         | Type                                                                          |
+| ------------- | ----------------------------------------------------------------------------- |
+| **`options`** | <code>{ items: {}; policy: <a href="#ensurepolicy">EnsurePolicy</a>; }</code> |
+
+**Returns:** <code>any</code>
+
+--------------------
+
+
 ### addListener('ModelsHubProgress', ...)
 
 ```typescript
@@ -118,12 +134,12 @@ addListener(eventName: "ModelsHubProgress", listenerFunc: (event: ProgressEvent)
 
 #### ModelItem
 
-<code>{ key: string; // 必须与 assets/models/&lt;key&gt;.zip 对齐 unpackTo: string; // e.g. "stt/en_kroko" checkFiles: string[]; // e.g. ["encoder.onnx","tokens.txt"] password?: string; // AES zip password sha256?: string; // 可选：zip 的 sha256（推荐） remoteUrl?: string; // releaseLite 走下载 }</code>
+<code>{ key: string; // zip 名称（不含 .zip），对应 assets/models/&lt;key&gt;.zip unpackTo: string; // 解压目标相对路径（相对于 models root） checkFiles: string[]; // 解压后必须存在的文件（相对于 unpackTo） password?: string; // AES zip password sha256?: string; // zip sha256（推荐） remoteUrl?: string; // 无 bundled 时下载地址 version?: string; // installedVersion（用于 state.json） }</code>
 
 
 #### CheckResult
 
-<code>{ key: string; status: "installed" | "missing" | "corrupt"; installedPath: string; // &lt;modelsRoot&gt;/&lt;unpackTo&gt; hasBundledZip: boolean; // assets/models/&lt;key&gt;.zip 是否存在 }</code>
+<code>{ key: string; status: "installed" | "missing" | "corrupt"; installedPath: string; // &lt;modelsRoot&gt;/&lt;unpackTo&gt; hasBundledZip: boolean; // assets/models/&lt;key&gt;.zip 是否存在 state?: any; // state.json 中该 key 的记录（如果有） }</code>
 
 
 #### EnsurePolicy
@@ -133,11 +149,11 @@ addListener(eventName: "ModelsHubProgress", listenerFunc: (event: ProgressEvent)
 
 #### EnsureResult
 
-<code>{ key: string; installedPath: string; }</code>
+<code>{ key: string; installedPath: string; installedVersion?: string; }</code>
 
 
 #### ProgressEvent
 
-<code>{ key: string; phase: "checking" | "copying" | "downloading" | "verifying" | "unpacking" | "finalizing"; downloaded?: number; total?: number; progress?: number; // 0..1 message?: string; }</code>
+<code>{ key: string; phase: "checking" | "copying" | "downloading" | "verifying" | "unpacking" | "finalizing" | "done" | "error"; downloaded?: number; total?: number; progress?: number; // 0..1 message?: string; }</code>
 
 </docgen-api>
