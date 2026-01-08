@@ -17,10 +17,14 @@ import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.Locale;
 import net.lingala.zip4j.ZipFile;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 @CapacitorPlugin(name = "CapacitorModelhubPlugin")
 public class CapacitorModelhubPluginPlugin extends Plugin {
     private static final String STATE_FILE_NAME = "state.json";
+    private final ExecutorService executor = Executors.newCachedThreadPool();
 
     private CapacitorModelhubPlugin implementation = new CapacitorModelhubPlugin();
 
@@ -91,7 +95,7 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
 
     @PluginMethod
     public void ensureInstalled(PluginCall call) {
-        getBridge().executeOnThreadPool(() -> {
+        executor.execute(() -> {
             try {
                 JSObject item = call.getObject("item");
                 if (item == null) {
@@ -99,7 +103,7 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
                     return;
                 }
                 String policy = call.getString("policy", "bundleThenDownload");
-                EnsureResult r = ensureOne(item.toJSONObject(), policy);
+                EnsureResult r = ensureOne(new org.json.JSONObject(item.toString()), policy);
                 call.resolve(r.toJs());
             } catch (Exception e) {
                 call.reject("ensureInstalled error: " + e.getMessage());
@@ -109,7 +113,7 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
 
     @PluginMethod
     public void ensureInstalledMany(PluginCall call) {
-        getBridge().executeOnThreadPool(() -> {
+        executor.execute(() -> {
             try {
                 JSONArray items = call.getArray("items");
                 if (items == null)
@@ -132,6 +136,12 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
     }
 
     // ===================== Core Ensure =====================
+
+    @Override
+    protected void handleOnDestroy() {
+        super.handleOnDestroy();
+        executor.shutdownNow();
+    }
 
     private EnsureResult ensureOne(JSONObject item, String policy) throws Exception {
         Context ctx = getContext();
