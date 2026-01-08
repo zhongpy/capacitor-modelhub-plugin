@@ -17,8 +17,17 @@ export type CheckResult = {
 };
 export type EnsureResult = {
     key: string;
+    ok: boolean;
     installedPath: string;
     installedVersion?: string;
+    code?: string;
+    message?: string;
+    hasBundledZip?: boolean;
+    usedSource?: "bundle" | "download" | "none";
+    sha256?: string;
+    zipSize?: number;
+    unpackTo?: string;
+    state?: any;
 };
 export type ProgressEvent = {
     key: string;

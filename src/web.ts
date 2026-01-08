@@ -1,36 +1,68 @@
-import { WebPlugin } from '@capacitor/core';
+// src/web.ts
+import type {
+  CapacitorModelhubPluginPlugin,
+  ModelItem,
+  EnsurePolicy,
+  CheckResult,
+  EnsureResult,
+  ProgressEvent,
+} from "./definitions";
 
-import type { CapacitorModelhubPluginPlugin,ModelItem,CheckResult,EnsurePolicy,EnsureResult } from './definitions';
+export class CapacitorModelhubPluginWeb implements CapacitorModelhubPluginPlugin {
+  private listeners: Array<(e: ProgressEvent) => void> = [];
 
-export class CapacitorModelhubPluginWeb extends WebPlugin implements CapacitorModelhubPluginPlugin {
-  async echo(options: { value: string }): Promise<{ value: string }> {
-    console.log('ECHO', options);
-    return options;
+  async echo(options: { value: string }) {
+    return { value: options.value };
   }
 
-  async getRoot(): Promise<{ path: string }>{
-    const result = { path: '' };
-    console.log('getRoot');
-    return result;
+  async getRoot() {
+    return { path: "/models" };
   }
-  async getPath(options: { unpackTo: string }): Promise<{ path: string }>{
-    const result = { path: '' };
-    console.log('getPath'+options);
-    return result;
+
+  async getPath(options: { unpackTo: string }) {
+    const root = (await this.getRoot()).path.replace(/\/+$/, "");
+    const rel = String(options.unpackTo || "").replace(/^\/+/, "");
+    return { path: `${root}/${rel}` };
   }
-  async check(options: { items: ModelItem[] }): Promise<{ results: CheckResult[] }>{
-    const result = { results: [] };
-    console.log('check'+options);
-    return result;
+
+  async check(options: { items: ModelItem[] }): Promise<{ results: CheckResult[] }> {
+    const items = Array.isArray(options.items) ? options.items : [];
+    const root = (await this.getRoot()).path.replace(/\/+$/, "");
+
+    return {
+      results: items.map((it) => ({
+        key: it.key,
+        status: "missing",
+        installedPath: `${root}/${String(it.unpackTo || "").replace(/^\/+/, "")}`,
+        hasBundledZip: false,
+      })),
+    };
   }
-  async ensureInstalled(options: { item: ModelItem; policy: EnsurePolicy }): Promise<EnsureResult>{
-    const result = { key: options.item.key, installedPath: '' };
-    console.log('ensureInstalled');
-    return result;
+
+  async ensureInstalled(_options: { item: ModelItem; policy: EnsurePolicy }): Promise<EnsureResult> {
+    throw new Error("CapacitorModelhubPlugin is not supported on Web");
   }
-  async ensureInstalledMany(options: { items: ModelItem[]; policy: EnsurePolicy }): Promise<{ results: EnsureResult[] }>{
-    const result = { results: [] };
-    console.log('ensureInstalledMany'+options);
-    return result;
+
+  async ensureInstalledMany(_options: { items: ModelItem[]; policy: EnsurePolicy }): Promise<{ results: EnsureResult[] }> {
+    throw new Error("CapacitorModelhubPlugin is not supported on Web");
+  }
+
+  async addListener(
+    eventName: "ModelsHubProgress",
+    listenerFunc: (event: ProgressEvent) => void
+  ): Promise<{ remove: () => Promise<void> }> {
+    if (eventName !== "ModelsHubProgress") return { remove: async () => void 0 };
+    this.listeners.push(listenerFunc);
+    return {
+      remove: async () => {
+        this.listeners = this.listeners.filter((fn) => fn !== listenerFunc);
+      },
+    };
+  }
+
+  protected emit(ev: ProgressEvent) {
+    for (const fn of this.listeners) {
+      try { fn(ev); } catch { /* ignore */ }
+    }
   }
 }

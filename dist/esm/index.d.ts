@@ -1,4 +1,3 @@
-import type { CapacitorModelhubPluginPlugin } from './definitions';
-declare const CapacitorModelhubPlugin: CapacitorModelhubPluginPlugin;
-export * from './definitions';
-export { CapacitorModelhubPlugin };
+import type { CapacitorModelhubPluginPlugin } from "./definitions";
+export declare const CapacitorModelhubPlugin: CapacitorModelhubPluginPlugin;
+export * from "./definitions";

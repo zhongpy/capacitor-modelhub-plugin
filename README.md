@@ -134,12 +134,12 @@ addListener(eventName: "ModelsHubProgress", listenerFunc: (event: ProgressEvent)
 
 #### ModelItem
 
-<code>{ key: string; // zip 名称（不含 .zip），对应 assets/models/&lt;key&gt;.zip unpackTo: string; // 解压目标相对路径（相对于 models root） checkFiles: string[]; // 解压后必须存在的文件（相对于 unpackTo） password?: string; // AES zip password sha256?: string; // zip sha256（推荐） remoteUrl?: string; // 无 bundled 时下载地址 version?: string; // installedVersion（用于 state.json） }</code>
+<code>{ key: string; // assets/models/&lt;key&gt;.zip unpackTo: string; // relative to models root checkFiles: string[]; // relative to unpackTo password?: string; // AES zip password sha256?: string; // NOTE: Java expects field name "sha256" remoteUrl?: string; version?: string; }</code>
 
 
 #### CheckResult
 
-<code>{ key: string; status: "installed" | "missing" | "corrupt"; installedPath: string; // &lt;modelsRoot&gt;/&lt;unpackTo&gt; hasBundledZip: boolean; // assets/models/&lt;key&gt;.zip 是否存在 state?: any; // state.json 中该 key 的记录（如果有） }</code>
+<code>{ key: string; status: "installed" | "missing" | "corrupt"; installedPath: string; hasBundledZip: boolean; state?: any; }</code>
 
 
 #### EnsurePolicy
@@ -149,11 +149,11 @@ addListener(eventName: "ModelsHubProgress", listenerFunc: (event: ProgressEvent)
 
 #### EnsureResult
 
-<code>{ key: string; installedPath: string; installedVersion?: string; }</code>
+<code>{ key: string; ok: boolean; installedPath: string; installedVersion?: string; code?: string; message?: string; hasBundledZip?: boolean; usedSource?: "bundle" | "download" | "none"; sha256?: string; zipSize?: number; unpackTo?: string; state?: any; }</code>
 
 
 #### ProgressEvent
 
-<code>{ key: string; phase: "checking" | "copying" | "downloading" | "verifying" | "unpacking" | "finalizing" | "done" | "error"; downloaded?: number; total?: number; progress?: number; // 0..1 message?: string; }</code>
+<code>{ key: string; phase: | "checking" | "copying" | "downloading" | "verifying" | "unpacking" | "finalizing" | "done" | "error"; downloaded?: number; total?: number; progress?: number; // 0..1 message?: string; }</code>
 
 </docgen-api>

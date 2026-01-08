@@ -1,6 +1,6 @@
-import { WebPlugin } from '@capacitor/core';
-import type { CapacitorModelhubPluginPlugin, ModelItem, CheckResult, EnsurePolicy, EnsureResult } from './definitions';
-export declare class CapacitorModelhubPluginWeb extends WebPlugin implements CapacitorModelhubPluginPlugin {
+import type { CapacitorModelhubPluginPlugin, ModelItem, EnsurePolicy, CheckResult, EnsureResult, ProgressEvent } from "./definitions";
+export declare class CapacitorModelhubPluginWeb implements CapacitorModelhubPluginPlugin {
+    private listeners;
     echo(options: {
         value: string;
     }): Promise<{
@@ -19,14 +19,18 @@ export declare class CapacitorModelhubPluginWeb extends WebPlugin implements Cap
     }): Promise<{
         results: CheckResult[];
     }>;
-    ensureInstalled(options: {
+    ensureInstalled(_options: {
         item: ModelItem;
         policy: EnsurePolicy;
     }): Promise<EnsureResult>;
-    ensureInstalledMany(options: {
+    ensureInstalledMany(_options: {
         items: ModelItem[];
         policy: EnsurePolicy;
     }): Promise<{
         results: EnsureResult[];
     }>;
+    addListener(eventName: "ModelsHubProgress", listenerFunc: (event: ProgressEvent) => void): Promise<{
+        remove: () => Promise<void>;
+    }>;
+    protected emit(ev: ProgressEvent): void;
 }

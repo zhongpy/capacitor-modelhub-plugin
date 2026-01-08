@@ -141,7 +141,7 @@
       "docs": "",
       "types": [
         {
-          "text": "{\n  key: string;                 // zip 名称（不含 .zip），对应 assets/models/<key>.zip\n  unpackTo: string;            // 解压目标相对路径（相对于 models root）\n  checkFiles: string[];        // 解压后必须存在的文件（相对于 unpackTo）\n  password?: string;           // AES zip password\n  sha256?: string;             // zip sha256（推荐）\n  remoteUrl?: string;          // 无 bundled 时下载地址\n  version?: string;            // installedVersion（用于 state.json）\n}",
+          "text": "{\n  key: string;           // assets/models/<key>.zip\n  unpackTo: string;      // relative to models root\n  checkFiles: string[];  // relative to unpackTo\n  password?: string;     // AES zip password\n  sha256?: string;       // NOTE: Java expects field name \"sha256\"\n  remoteUrl?: string;\n  version?: string;\n}",
           "complexTypes": []
         }
       ]
@@ -152,7 +152,7 @@
       "docs": "",
       "types": [
         {
-          "text": "{\n  key: string;\n  status: \"installed\" | \"missing\" | \"corrupt\";\n  installedPath: string;       // <modelsRoot>/<unpackTo>\n  hasBundledZip: boolean;      // assets/models/<key>.zip 是否存在\n  state?: any;                 // state.json 中该 key 的记录（如果有）\n}",
+          "text": "{\n  key: string;\n  status: \"installed\" | \"missing\" | \"corrupt\";\n  installedPath: string;\n  hasBundledZip: boolean;\n  state?: any;\n}",
           "complexTypes": []
         }
       ]
@@ -182,7 +182,7 @@
       "docs": "",
       "types": [
         {
-          "text": "{\n  key: string;\n  installedPath: string;\n  installedVersion?: string;\n}",
+          "text": "{\n  key: string;\n  ok: boolean;\n\n  installedPath: string;\n  installedVersion?: string;\n\n  code?: string;\n  message?: string;\n\n  hasBundledZip?: boolean;\n  usedSource?: \"bundle\" | \"download\" | \"none\";\n\n  sha256?: string;\n  zipSize?: number;\n  unpackTo?: string;\n\n  state?: any;\n}",
           "complexTypes": []
         }
       ]
@@ -193,7 +193,7 @@
       "docs": "",
       "types": [
         {
-          "text": "{\n  key: string;\n  phase: \"checking\" | \"copying\" | \"downloading\" | \"verifying\" | \"unpacking\" | \"finalizing\" | \"done\" | \"error\";\n  downloaded?: number;\n  total?: number;\n  progress?: number; // 0..1\n  message?: string;\n}",
+          "text": "{\n  key: string;\n  phase:\n    | \"checking\"\n    | \"copying\"\n    | \"downloading\"\n    | \"verifying\"\n    | \"unpacking\"\n    | \"finalizing\"\n    | \"done\"\n    | \"error\";\n  downloaded?: number;\n  total?: number;\n  progress?: number; // 0..1\n  message?: string;\n}",
           "complexTypes": []
         }
       ]

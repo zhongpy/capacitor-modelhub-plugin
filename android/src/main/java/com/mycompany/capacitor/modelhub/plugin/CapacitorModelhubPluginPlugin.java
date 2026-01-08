@@ -1,40 +1,35 @@
 package com.mycompany.capacitor.modelhub.plugin;
 
-import com.getcapacitor.JSObject;
-import com.getcapacitor.Plugin;
-import com.getcapacitor.PluginCall;
-import com.getcapacitor.PluginMethod;
+import com.getcapacitor.*;
 import com.getcapacitor.annotation.CapacitorPlugin;
+
 import android.content.Context;
 import android.content.res.AssetManager;
-import com.getcapacitor.*;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
+
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.Locale;
-import net.lingala.zip4j.ZipFile;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+
+import net.lingala.zip4j.ZipFile;
 
 @CapacitorPlugin(name = "CapacitorModelhubPlugin")
 public class CapacitorModelhubPluginPlugin extends Plugin {
+
     private static final String STATE_FILE_NAME = "state.json";
     private final ExecutorService executor = Executors.newCachedThreadPool();
-
-    private CapacitorModelhubPlugin implementation = new CapacitorModelhubPlugin();
 
     @PluginMethod
     public void echo(PluginCall call) {
         String value = call.getString("value");
-
-        JSObject ret = new JSObject();
-        ret.put("value", implementation.echo(value));
-        call.resolve(ret);
+        call.resolve(new JSObject().put("value", value));
     }
 
     @PluginMethod
@@ -59,18 +54,18 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
                 items = new JSONArray();
 
             File root = ensureRoot(getContext());
-            JSONObject state = readState(root);
+            JSONObject stateAll = readState(root);
 
             JSArray results = new JSArray();
             for (int i = 0; i < items.length(); i++) {
                 JSONObject it = items.getJSONObject(i);
+
                 String key = it.optString("key", "");
                 String unpackTo = it.optString("unpackTo", "");
                 JSONArray checkFiles = it.optJSONArray("checkFiles");
 
                 File installedDir = new File(root, safeRel(unpackTo));
                 boolean hasBundled = assetExists(getContext(), "models/" + key + ".zip");
-
                 Status st = checkInstalled(installedDir, checkFiles);
 
                 JSObject r = new JSObject();
@@ -79,15 +74,13 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
                 r.put("hasBundledZip", hasBundled);
                 r.put("status", st.value);
 
-                if (state.has(key))
-                    r.put("state", JSObject.fromJSONObject(state.getJSONObject(key)));
-
+                if (stateAll.has(key)) {
+                    r.put("state", JSObject.fromJSONObject(stateAll.getJSONObject(key)));
+                }
                 results.put(r);
             }
 
-            JSObject ret = new JSObject();
-            ret.put("results", results);
-            call.resolve(ret);
+            call.resolve(new JSObject().put("results", results));
         } catch (Exception e) {
             call.reject("check error: " + e.getMessage());
         }
@@ -103,9 +96,12 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
                     return;
                 }
                 String policy = call.getString("policy", "bundleThenDownload");
-                EnsureResult r = ensureOne(new org.json.JSONObject(item.toString()), policy);
+
+                EnsureResult r = ensureOne(new JSONObject(item.toString()), policy);
                 call.resolve(r.toJs());
+
             } catch (Exception e) {
+                // 单个 ensureInstalled：保持 reject（调用方通常希望明确失败）
                 call.reject("ensureInstalled error: " + e.getMessage());
             }
         });
@@ -123,25 +119,42 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
                 JSArray arr = new JSArray();
                 for (int i = 0; i < items.length(); i++) {
                     JSONObject it = items.getJSONObject(i);
-                    EnsureResult r = ensureOne(it, policy);
+                    EnsureResult r;
+                    try {
+                        r = ensureOne(it, policy);
+                    } catch (Exception oneErr) {
+                        // 关键：单条失败不让整个批量 reject
+                        String key = it.optString("key", "");
+                        String unpackTo = it.optString("unpackTo", "");
+                        File root = ensureRoot(getContext());
+                        File installedDir = new File(root, safeRel(unpackTo));
+                        boolean hasBundled = assetExists(getContext(), "models/" + key + ".zip");
+
+                        r = EnsureResult.fail(
+                                key,
+                                installedDir.getAbsolutePath(),
+                                normalizeCode(oneErr),
+                                oneErr.getMessage(),
+                                hasBundled,
+                                unpackTo);
+                    }
                     arr.put(r.toJs());
                 }
-                JSObject ret = new JSObject();
-                ret.put("results", arr);
-                call.resolve(ret);
+
+                call.resolve(new JSObject().put("results", arr));
             } catch (Exception e) {
                 call.reject("ensureInstalledMany error: " + e.getMessage());
             }
         });
     }
 
-    // ===================== Core Ensure =====================
-
     @Override
     protected void handleOnDestroy() {
         super.handleOnDestroy();
         executor.shutdownNow();
     }
+
+    // ===================== Core Ensure =====================
 
     private EnsureResult ensureOne(JSONObject item, String policy) throws Exception {
         Context ctx = getContext();
@@ -155,20 +168,36 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
         String version = item.optString("version", "");
         JSONArray checkFiles = item.optJSONArray("checkFiles");
 
-        if (key.isEmpty() || unpackTo.isEmpty())
+        if (key.isEmpty() || unpackTo.isEmpty()) {
             throw new IllegalArgumentException("key/unpackTo is required");
+        }
 
         File installedDir = new File(root, safeRel(unpackTo));
 
         emit(key, "checking", null, null, null, "checking installed");
         Status st0 = checkInstalled(installedDir, checkFiles);
         if (st0 == Status.INSTALLED) {
-            return new EnsureResult(key, installedDir.getAbsolutePath(), version.isEmpty() ? null : version);
+            // 已存在也回传 state（如果有）
+            JSONObject stateAll = readState(root);
+            JSONObject rec = stateAll.optJSONObject(key);
+
+            return EnsureResult.ok(
+                    key,
+                    installedDir.getAbsolutePath(),
+                    emptyToNull(version),
+                    "installed",
+                    "already installed",
+                    assetExists(ctx, "models/" + key + ".zip"),
+                    "none",
+                    sha256,
+                    0L,
+                    unpackTo,
+                    rec);
         }
 
         boolean hasBundled = assetExists(ctx, "models/" + key + ".zip");
 
-        // 1) bundled
+        // ---- bundle 优先 ----
         if (!"downloadOnly".equals(policy) && hasBundled) {
             File zip = copyAssetZipToTmp(ctx, key);
             long zipSize = zip.length();
@@ -179,16 +208,29 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
                 if (!sha256.equalsIgnoreCase(got)) {
                     // noinspection ResultOfMethodCallIgnored
                     zip.delete();
-                    throw new IOException("SHA256 mismatch for bundled zip, expected=" + sha256 + " got=" + got);
+                    throw new IOException("SHA256_MISMATCH bundled expected=" + sha256 + " got=" + got);
                 }
             }
 
             installFromZip(key, zip, installedDir, password, checkFiles);
 
             writeStateRecord(root, key, version, sha256, zipSize, unpackTo);
+            JSONObject stateAll = readState(root);
+            JSONObject rec = stateAll.optJSONObject(key);
 
             emit(key, "done", null, null, 1.0, "installed");
-            return new EnsureResult(key, installedDir.getAbsolutePath(), version.isEmpty() ? null : version);
+            return EnsureResult.ok(
+                    key,
+                    installedDir.getAbsolutePath(),
+                    emptyToNull(version),
+                    "installed",
+                    "installed from bundle",
+                    true,
+                    "bundle",
+                    sha256,
+                    zipSize,
+                    unpackTo,
+                    rec);
         }
 
         if ("bundleOnly".equals(policy)) {
@@ -196,7 +238,7 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
             throw new IOException("MODEL_MISSING_BUNDLED");
         }
 
-        // 2) download
+        // ---- download ----
         if (remoteUrl.isEmpty()) {
             emit(key, "error", null, null, null, "MODEL_MISSING_REMOTE_URL");
             throw new IOException("MODEL_MISSING_REMOTE_URL");
@@ -211,34 +253,50 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
             if (!sha256.equalsIgnoreCase(got)) {
                 // noinspection ResultOfMethodCallIgnored
                 zip.delete();
-                throw new IOException("SHA256 mismatch for downloaded zip, expected=" + sha256 + " got=" + got);
+                throw new IOException("SHA256_MISMATCH downloaded expected=" + sha256 + " got=" + got);
             }
         }
 
         installFromZip(key, zip, installedDir, password, checkFiles);
 
         writeStateRecord(root, key, version, sha256, zipSize, unpackTo);
+        JSONObject stateAll = readState(root);
+        JSONObject rec = stateAll.optJSONObject(key);
 
         emit(key, "done", null, null, 1.0, "installed");
-        return new EnsureResult(key, installedDir.getAbsolutePath(), version.isEmpty() ? null : version);
+        return EnsureResult.ok(
+                key,
+                installedDir.getAbsolutePath(),
+                emptyToNull(version),
+                "installed",
+                "installed from download",
+                hasBundled,
+                "download",
+                sha256,
+                zipSize,
+                unpackTo,
+                rec);
     }
 
     private void installFromZip(String key, File zip, File installedDir, String password, JSONArray checkFiles)
             throws Exception {
         File root = ensureRoot(getContext());
         File tmpRoot = new File(root, "_tmp");
+        // noinspection ResultOfMethodCallIgnored
         tmpRoot.mkdirs();
 
         File unpackDir = new File(tmpRoot, "unpack_" + key);
         deleteRecursively(unpackDir);
+        // noinspection ResultOfMethodCallIgnored
         unpackDir.mkdirs();
 
         emit(key, "unpacking", null, null, null, "unpacking zip");
         unzipAesZip(zip, unpackDir, password);
 
         Status st = checkInstalled(unpackDir, checkFiles);
-        if (st != Status.INSTALLED)
-            throw new IOException("unpacked content invalid: " + st.value);
+        if (st != Status.INSTALLED) {
+            throw new IOException("UNPACK_INVALID:" + st.value);
+        }
 
         emit(key, "finalizing", null, null, null, "finalizing");
         deleteRecursively(installedDir);
@@ -264,6 +322,7 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
         emit(key, "copying", null, null, null, "copying bundled zip");
         File root = ensureRoot(ctx);
         File tmpDir = new File(root, "_tmp");
+        // noinspection ResultOfMethodCallIgnored
         tmpDir.mkdirs();
         File out = new File(tmpDir, key + ".zip");
 
@@ -282,6 +341,7 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
     private File downloadZipToTmp(String key, String urlStr) throws Exception {
         File root = ensureRoot(getContext());
         File tmpDir = new File(root, "_tmp");
+        // noinspection ResultOfMethodCallIgnored
         tmpDir.mkdirs();
         File out = new File(tmpDir, key + ".zip");
 
@@ -293,8 +353,9 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
             conn.setConnectTimeout(20000);
             conn.setReadTimeout(600000);
             conn.connect();
-            if (conn.getResponseCode() != 200)
-                throw new IOException("HTTP " + conn.getResponseCode());
+            int rc = conn.getResponseCode();
+            if (rc != 200)
+                throw new IOException("HTTP_" + rc);
 
             long total = conn.getContentLengthLong();
             long downloaded = 0;
@@ -358,8 +419,10 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
 
     private void writeAtomic(File f, String content) throws Exception {
         File dir = f.getParentFile();
-        if (dir != null && !dir.exists())
+        if (dir != null && !dir.exists()) {
+            // noinspection ResultOfMethodCallIgnored
             dir.mkdirs();
+        }
         File tmp = new File(dir, f.getName() + ".tmp");
         try (OutputStream out = new FileOutputStream(tmp)) {
             out.write(content.getBytes());
@@ -383,7 +446,9 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
     // ===================== Installed checking =====================
 
     enum Status {
-        INSTALLED("installed"), MISSING("missing"), CORRUPT("corrupt");
+        INSTALLED("installed"),
+        MISSING("missing"),
+        CORRUPT("corrupt");
 
         final String value;
 
@@ -440,8 +505,10 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
 
     private File ensureRoot(Context ctx) {
         File root = new File(ctx.getFilesDir(), "models");
-        if (!root.exists())
+        if (!root.exists()) {
+            // noinspection ResultOfMethodCallIgnored
             root.mkdirs();
+        }
         return root;
     }
 
@@ -485,8 +552,10 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
 
     private void copyDir(File src, File dst) throws IOException {
         if (src.isDirectory()) {
-            if (!dst.exists())
+            if (!dst.exists()) {
+                // noinspection ResultOfMethodCallIgnored
                 dst.mkdirs();
+            }
             File[] children = src.listFiles();
             if (children != null) {
                 for (File c : children)
@@ -494,8 +563,10 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
             }
         } else {
             File parent = dst.getParentFile();
-            if (parent != null && !parent.exists())
+            if (parent != null && !parent.exists()) {
+                // noinspection ResultOfMethodCallIgnored
                 parent.mkdirs();
+            }
             try (InputStream in = new FileInputStream(src);
                     OutputStream out = new FileOutputStream(dst)) {
                 byte[] buf = new byte[1024 * 1024];
@@ -506,25 +577,133 @@ public class CapacitorModelhubPluginPlugin extends Plugin {
         }
     }
 
+    private static String emptyToNull(String s) {
+        if (s == null)
+            return null;
+        s = s.trim();
+        return s.isEmpty() ? null : s;
+    }
+
+    private static String normalizeCode(Exception e) {
+        String msg = (e.getMessage() == null) ? "" : e.getMessage();
+        if (msg.startsWith("HTTP_"))
+            return msg; // HTTP_403 / HTTP_404 ...
+        if (msg.startsWith("SHA256_MISMATCH"))
+            return "SHA256_MISMATCH";
+        if (msg.startsWith("UNPACK_INVALID"))
+            return "UNPACK_INVALID";
+        if (msg.equals("MODEL_MISSING_BUNDLED"))
+            return "MODEL_MISSING_BUNDLED";
+        if (msg.equals("MODEL_MISSING_REMOTE_URL"))
+            return "MODEL_MISSING_REMOTE_URL";
+        if (e instanceof IllegalArgumentException)
+            return "BAD_ARGS";
+        return "ERROR";
+    }
+
     // ===================== DTO =====================
 
     static class EnsureResult {
         final String key;
+        final boolean ok;
         final String installedPath;
         final String installedVersion;
 
-        EnsureResult(String key, String installedPath, String installedVersion) {
+        final String code;
+        final String message;
+
+        final boolean hasBundledZip;
+        final String usedSource; // bundle/download/none
+
+        final String sha256;
+        final long zipSize;
+        final String unpackTo;
+
+        final JSONObject state; // state.json record
+
+        private EnsureResult(
+                String key,
+                boolean ok,
+                String installedPath,
+                String installedVersion,
+                String code,
+                String message,
+                boolean hasBundledZip,
+                String usedSource,
+                String sha256,
+                long zipSize,
+                String unpackTo,
+                JSONObject state) {
             this.key = key;
+            this.ok = ok;
             this.installedPath = installedPath;
             this.installedVersion = installedVersion;
+            this.code = code;
+            this.message = message;
+            this.hasBundledZip = hasBundledZip;
+            this.usedSource = usedSource;
+            this.sha256 = sha256;
+            this.zipSize = zipSize;
+            this.unpackTo = unpackTo;
+            this.state = state;
+        }
+
+        static EnsureResult ok(
+                String key,
+                String installedPath,
+                String installedVersion,
+                String code,
+                String message,
+                boolean hasBundledZip,
+                String usedSource,
+                String sha256,
+                long zipSize,
+                String unpackTo,
+                JSONObject state) {
+            return new EnsureResult(key, true, installedPath, installedVersion, code, message, hasBundledZip,
+                    usedSource, sha256, zipSize, unpackTo, state);
+        }
+
+        static EnsureResult fail(
+                String key,
+                String installedPath,
+                String code,
+                String message,
+                boolean hasBundledZip,
+                String unpackTo) {
+            return new EnsureResult(key, false, installedPath, null, code, message, hasBundledZip, "none", "", 0L,
+                    unpackTo, null);
         }
 
         JSObject toJs() {
             JSObject o = new JSObject();
             o.put("key", key);
-            o.put("installedPath", installedPath);
+            o.put("ok", ok);
+            o.put("installedPath", installedPath == null ? "" : installedPath);
+
             if (installedVersion != null)
                 o.put("installedVersion", installedVersion);
+            if (code != null)
+                o.put("code", code);
+            if (message != null)
+                o.put("message", message);
+
+            o.put("hasBundledZip", hasBundledZip);
+            if (usedSource != null)
+                o.put("usedSource", usedSource);
+
+            if (sha256 != null && !sha256.isEmpty())
+                o.put("sha256", sha256);
+            o.put("zipSize", zipSize);
+            if (unpackTo != null)
+                o.put("unpackTo", unpackTo);
+
+            if (state != null) {
+                try {
+                    o.put("state", JSObject.fromJSONObject(state));
+                } catch (Exception ignored) {
+                }
+            }
             return o;
         }
     }
